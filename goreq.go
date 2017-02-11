@@ -1,6 +1,4 @@
 // Package goreq is a simplified http client.
-// Its initial codes are cloned from [HttpRequest](https://github.com/parnurzeal/gorequest). I have refactored the codes and make it more friendly to programmers.  And some bugs are fixed and new features are added.
-// goreq makes http thing more simple for you, using fluent styles to make http client more awesome. You can control headers, timeout, query parameters, binding response and others in one line:
 //
 // Before
 //
@@ -29,7 +27,6 @@ import (
 	"mime/multipart"
 	"net"
 	"net/http"
-	"net/http/cookiejar"
 	"net/http/httputil"
 	"net/url"
 	"os"
@@ -37,7 +34,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/moul/http2curl"
+	"github.com/yuanlixg/cookiejar"
 	"golang.org/x/net/proxy"
 	"golang.org/x/net/publicsuffix"
 )
@@ -79,7 +76,6 @@ type GoReq struct {
 	Errors           []error
 	BasicAuth        struct{ Username, Password string }
 	Debug            bool
-	CurlCommand      bool
 	logger           *log.Logger
 	retry            *RetryConfig
 	bindResponseBody interface{}
@@ -108,7 +104,6 @@ func New() *GoReq {
 		Errors:           nil,
 		BasicAuth:        struct{ Username, Password string }{},
 		Debug:            false,
-		CurlCommand:      false,
 		logger:           log.New(os.Stderr, "[goreq]", log.LstdFlags),
 		retry:            &RetryConfig{RetryCount: 0, RetryTimeout: 0, RetryOnHTTPStatus: nil},
 		bindResponseBody: nil,
@@ -119,12 +114,6 @@ func New() *GoReq {
 // SetDebug enables the debug mode which logs request/response detail
 func (gr *GoReq) SetDebug(enable bool) *GoReq {
 	gr.Debug = enable
-	return gr
-}
-
-// SetCurlCommand enables the curlcommand mode which display a CURL command line
-func (gr *GoReq) SetCurlCommand(enable bool) *GoReq {
-	gr.CurlCommand = enable
 	return gr
 }
 
@@ -311,7 +300,8 @@ func (gr *GoReq) SetBasicAuth(username string, password string) *GoReq {
 	return gr
 }
 
-// AddCookie adds a cookie to the request. The behavior is the same as AddCookie on Request from net/http
+// AddCookie adds a cookie to the request.
+// The behavior is the same as AddCookie on Request from net/http
 func (gr *GoReq) AddCookie(c *http.Cookie) *GoReq {
 	gr.Cookies = append(gr.Cookies, c)
 	return gr
@@ -335,7 +325,8 @@ var ShortContentTypes = map[string]string{
 	"stream":     "application/octet-stream",
 }
 
-// ContentType is a convenience function to specify the data type to send instead of SetHeader("Content-Type", "......").
+// ContentType is a convenience function to specify the data type to send
+// instead of SetHeader("Content-Type", "......").
 // For example, to send data as `application/x-www-form-urlencoded` :
 //
 //    goreq.New().
@@ -362,7 +353,8 @@ func (gr *GoReq) ContentType(typeStr string) *GoReq {
 	return gr
 }
 
-// Query function accepts either json string or query strings which will form a query-string in url of GET method or body of POST method.
+// Query function accepts either json string or query strings
+// which will form a query-string in url of GET method or body of POST method.
 // For example, making "/search?query=bicycle&size=50x50&weight=20kg" using GET method:
 //
 //      goreq.New().
@@ -498,9 +490,12 @@ func (gr *GoReq) TLSClientConfig(config *tls.Config) *GoReq {
 
 // Proxy function accepts a proxy url string to setup proxy url for any request.
 // It provides a convenience way to setup proxy which have advantages over usual old ways.
-// One example is you might try to set `http_proxy` environment. This means you are setting proxy up for all the requests.
-// You will not be able to send different request with different proxy unless you change your `http_proxy` environment again.
-// Another example is using Golang proxy setting. This is normal prefer way to do but too verbase compared to GoReq's Proxy:
+// One example is you might try to set `http_proxy` environment.
+// This means you are setting proxy up for all the requests.
+// You will not be able to send different request with different proxy
+// unless you change your `http_proxy` environment again.
+// Another example is using Golang proxy setting.
+// This is normal prefer way to do but too verbase compared to GoReq's Proxy:
 //
 //      goreq.New().Proxy("http://myproxy:9999").
 //        Post("http://www.google.com").
@@ -539,8 +534,10 @@ func (gr *GoReq) RedirectPolicy(policy func(req Request, via []Request) error) *
 	return gr
 }
 
-// SendStruct (similar to SendMapString) returns *GoReq's itself for any next chain and takes content interface{} as a parameter.
-// Its duty is to transfrom interface{} (implicitly always a struct) into s.Data (map[string]interface{}) which later changes into appropriate format such as json, form, text, etc. in the End() func.
+// SendStruct (similar to SendMapString) returns *GoReq's itself
+// for any next chain and takes content interface{} as a parameter.
+// Its duty is to transfrom interface{} (implicitly always a struct) into s.Data (map[string]interface{})
+// which later changes into appropriate format such as json, form, text, etc. in the End() func.
 // You can pass a struct to it:
 //      type BrowserVersionSupport struct {
 //        Chrome string
@@ -571,8 +568,10 @@ func (gr *GoReq) SendStruct(content interface{}) *GoReq {
 }
 
 // SendMapString returns *GoReq's itself for any next chain and takes content string as a parameter.
-// Its duty is to transform json String or query Strings into s.Data (map[string]interface{}) which later changes into appropriate format such as json, form, text, etc. in the End func.
-// SendMapString function accepts either json string or other strings which is usually used to assign data to POST or PUT method.
+// Its duty is to transform json String or query Strings into s.Data (map[string]interface{})
+// which later changes into appropriate format such as json, form, text, etc. in the End func.
+// SendMapString function accepts either json string or other strings
+// which is usually used to assign data to POST or PUT method.
 // you can pass a json string:
 //
 //      goreq.New().
@@ -751,9 +750,13 @@ func (gr *GoReq) BindBody(bindResponseBody interface{}) *GoReq {
 	return gr
 }
 
-// End is the most important function that you need to call when ending the chain. The request won't proceed without calling it.
-// End function returns Response which matchs the structure of Response type in Golang's http package (but without Body data). The body data itself returns as a string in a 2nd return value.
-// Lastly but worth noticing, error array (NOTE: not just single error value) is returned as a 3rd value and nil otherwise.
+// End is the most important function that you need to call when ending the chain.
+// The request won't proceed without calling it.
+// End function returns Response which matchs the structure of Response type
+// in Golang's http package (but without Body data).
+// The body data itself returns as a string in a 2nd return value.
+// Lastly but worth noticing, error array (NOTE: not just single error value)
+// is returned as a 3rd value and nil otherwise.
 //
 // For example:
 //
@@ -764,7 +767,8 @@ func (gr *GoReq) BindBody(bindResponseBody interface{}) *GoReq {
 //    fmt.Println(resp, body)
 //
 // Moreover, End function also supports callback which you can put as a parameter.
-// This extends the flexibility and makegr *GoReq fun and clean! You can use GoReq in whatever style you love!
+// This extends the flexibility and makegr *GoReq fun and clean!
+// You can use GoReq in whatever style you love!
 //
 // For example:
 //
@@ -790,7 +794,9 @@ func (gr *GoReq) End(callback ...func(response Response, body string, errs []err
 	return resp, bodyString, errs
 }
 
-// EndBytes should be used when you want the body as bytes. The callbacks work the same way as with `End`, except that a byte array is used instead of a string.
+// EndBytes should be used when you want the body as bytes.
+// The callbacks work the same way as with `End`,
+// except that a byte array is used instead of a string.
 func (gr *GoReq) EndBytes(callback ...func(response Response, body []byte, errs []error)) (Response, []byte, []error) {
 	var (
 		req  *http.Request
@@ -841,16 +847,6 @@ func (gr *GoReq) EndBytes(callback ...func(response Response, body []byte, errs 
 			gr.logger.Printf("Error: %s", err.Error())
 		}
 		gr.logger.Printf("HTTP Request: %s", string(dump))
-	}
-
-	if gr.CurlCommand {
-		curl, err := http2curl.GetCurlCommand(req)
-		gr.logger.SetPrefix("[curl] ")
-		if err != nil {
-			gr.logger.Println("Error:", err)
-		} else {
-			gr.logger.Printf("CURL command line: %s", curl)
-		}
 	}
 
 	// Send request
@@ -919,7 +915,8 @@ func initRequest(req *http.Request, gr *GoReq) {
 
 // Retry is used to retry to send requests if servers return unexpected status.
 // So GoReq tries at most retryCount + 1 times and request interval is retryTimeout.
-// You can indicate which status GoReq should retry in case of. If it is nil, retry only when status code >= 400
+// You can indicate which status GoReq should retry in case of.
+// If it is nil, retry only when status code >= 400
 //
 // For example:
 //    _, _, err := New().Get("http://example.com/a-wrong-url").
